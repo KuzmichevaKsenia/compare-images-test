@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <title>Рисуем простой график с помощью d3.js</title>
+    <link rel="stylesheet" href="css/style.css">
+  </head>
+  <body>
+    <header>
+       <h2>Шаг <span class="step-number">1</span> - <span class="step-title">Рисуем вертикальную ось</span></h2>
+       <div title="Функция, которая масштабирует данные к координатам
+var y = d3.scaleLinear().domain(allDataMinMaxY).range([height, 0]);" class="help">Помощь</div>
+       <button class="button next">Дальше -></button>
+    </header>
+    <main class="demo">
+      <div class="demo__item">
+        <div class="vertical-list">
+          <div class="vertical-list__item item">
+            <span class="item__title">JS (D3)</span>
+            <div class="item__inner js-editor-js"></div>
+          </div>
+        </div>
+      </div>
+      <div class="demo__item ">
+        <div class="vertical-list">
+          <div class="vertical-list__item item">
+            <span class="item__title">Что должно получиться</span>
+            <div class="item__inner demo__frame-wrapper">
+              <iframe class="demo__frame js-frame-preview"></iframe>
+            </div>
+          </div>
+	  <div class="item">
+            <button class="button js-result active-btn">Результат</button>
+            <button class="button js-compare">Cравнить</button>
+	    <b class="result result-wait"> <- Сравните с эталоном, чтобы продолжить</b>
+          </div>
+          <div class="vertical-list__item item user-result">
+            <span class="item__title">Результат</span>
+            <div class="item__inner demo__frame-wrapper js-frame-containter"></div>
+          </div>
+          <div class="vertical-list__item item compare-result hidden">
+            <span class="item__title">Результат сравнения</span>
+            <div class="item__inner js-compared-result"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script src="lib/data/initials.js"></script>
+    <script src="lib/ace/ace.js"></script>
+    <script src="lib/js-imagediff/js/imagediff.js"></script>
+    <script src="lib/rasterizeHTML.allinone.js"></script>
+    <script>
+      const resultMsgEl = document.querySelector('.result');
+      
+      window.check = function (previewEl, resultEl, container) {
+        const computedStyle = getComputedStyle(container);
+        
+        const canvas1 = document.createElement('canvas');
+        canvas1.width = Number.parseInt(computedStyle.width);
+        canvas1.height = Number.parseInt(computedStyle.height);
+        const canvas2 = document.createElement('canvas');
+        canvas2.width = Number.parseInt(computedStyle.width);
+        canvas2.height = Number.parseInt(computedStyle.height);
+        
+        const previewCanvasPromise = rasterizeHTML.drawDocument(previewEl, canvas1);
+        const resultCanvasPromise = rasterizeHTML.drawDocument(resultEl, canvas2);
+        
+        Promise.all([previewCanvasPromise, resultCanvasPromise])
+        .then(function([previewCanvas, resultCanvas]) {
+          const diff = imagediff.diff(previewCanvas.image, resultCanvas.image);
+          const equal = imagediff.equal(previewCanvas.image, resultCanvas.image);
+          
+          const canvas = imagediff.createCanvas();
+          canvas.width = Number.parseInt(computedStyle.width);
+          canvas.height = Number.parseInt(computedStyle.height);
+          const context = canvas.getContext('2d');
+          context.putImageData(diff, 0, 0);
+
+          container.innerHTML = '';
+          container.appendChild(canvas);
+
+          // вставляем канвас или png:
+          // const base64png = canvas.toDataURL('image/png');
+          // const img = new Image(canvas.width, canvas.height);
+          // img.src = base64png;
+          // container.appendChild(img);
+
+          // Показываем сообщение, если изображения совпали
+          var wrongMsg = ["Упс... Кажется, Вы ошиблись", "Немного не так", "Не в этот раз", "Попробуйте еще", "Не сдавайтесь, у вас получится"];
+          var correctMsg = ["Все верно!", "Тютелька в тютельку", "Отличная работа!", "Да вы просто мастер!", "Бьете рекорды сегодня :)", "Годно :)"];
+          if (equal) {
+            resultMsgEl.classList.add('result-correct');
+            resultMsgEl.classList.remove('result-wrong');
+            resultMsgEl.classList.remove('result-wait');
+	    document.querySelector('.next').disabled = false;
+            var rand = Math.floor(Math.random() * correctMsg.length);
+	    resultMsgEl.innerHTML = correctMsg[rand];
+          } else {
+            resultMsgEl.classList.add('result-wrong');
+            resultMsgEl.classList.remove('result-correct');
+            resultMsgEl.classList.remove('result-wait');
+            var rand = Math.floor(Math.random() * wrongMsg.length);
+	    resultMsgEl.innerHTML = wrongMsg[rand];
+          }
+        });
+      };
+    </script>
+    <script>
+	function drawPreviewIframe(previewIframe, previewIframeDoc, resultScript, jsCode) {
+	      resultScript.textContent = jsCode;
+	      previewIframeDoc.write(window.initialCode.initialHTML);
+	      previewIframeDoc.addEventListener('DOMContentLoaded', () => {
+		previewIframeDoc.body.appendChild(resultScript);
+	      })
+	      previewIframeDoc.close();
+	}
+    </script>
+    <script>
+      const jsEditor = ace.edit(document.querySelector('.js-editor-js'));
+      jsEditor.session.setMode('ace/mode/javascript'); // Режим редактора — javascript
+      jsEditor.session.setTabSize(2);
+      jsEditor.setValue(window.initialCode.initialJS1);
+      jsEditor.clearSelection();
+
+      const comparedResultEl = document.querySelector('.js-compared-result');
+
+      const compareBtn = document.querySelector('.js-compare');
+      const resultBtn = document.querySelector('.js-result');
+
+      const compareWindow = document.querySelector('.compare-result');
+      const resultWindow = document.querySelector('.user-result');
+      resultBtn.onclick = () => {
+          compareWindow.classList.add('hidden');
+          resultWindow.classList.remove('hidden');
+          resultBtn.classList.add('active-btn');
+          compareBtn.classList.remove('active-btn');
+      };
+
+      const getIframe = () => {
+        const frame = document.createElement('iframe');
+        frame.classList.add('demo__frame');
+        return frame;
+      };
+
+      const previewIframe = document.querySelector('.js-frame-preview');
+      const previewIframeDoc = previewIframe.contentDocument;
+      const resultScript = previewIframeDoc.createElement('script');
+
+      drawPreviewIframe(previewIframe, previewIframeDoc, resultScript, window.initialCode.resultJS1);
+
+      const frameContainer = document.querySelector('.js-frame-containter');
+
+      const makeChanges = () => {
+        frameContainer.innerHTML = '';
+        
+        const frame = getIframe();
+        frameContainer.appendChild(frame);
+
+        const doc = frame.contentDocument;
+
+        compareBtn.onclick = () => {
+          compareWindow.classList.remove('hidden');
+          resultWindow.classList.add('hidden');
+          resultBtn.classList.remove('active-btn');
+          compareBtn.classList.add('active-btn');
+          window.check(previewIframeDoc, doc, comparedResultEl);
+        };
+        
+        const userCode = jsEditor.getValue();
+
+        const script = doc.createElement('script');
+        script.textContent = userCode;
+        
+        doc.write(window.initialCode.initialHTML);
+        doc.addEventListener('DOMContentLoaded', () => {
+          doc.body.appendChild(script);
+        })
+        doc.close();
+      };
+      makeChanges();
+      
+      let interval = null;
+      const onChange = () => {
+        clearInterval(interval);
+        interval = setTimeout(() => {
+          makeChanges();
+        }, 1000);
+      }
+      jsEditor.getSession().on('change', onChange);
+      </script>
+      <script>
+	document.querySelector('.next').disabled = true;
+	const stepNumber = document.querySelector('.step-number');
+	const stepTitle = document.querySelector('.step-title');
+	const nextBtn = document.querySelector('.next');
+	nextBtn.onclick = () => {
+		document.querySelector('.next').disabled = true;
+            resultMsgEl.classList.add('result-wait');
+            resultMsgEl.classList.remove('result-correct');
+            resultMsgEl.classList.remove('result-wrong');
+	    resultMsgEl.innerHTML = " <- Сравните с эталоном, чтобы продолжить";
+		const previewIframe = document.querySelector('.js-frame-preview');
+		const help = document.querySelector('.help');
+		const previewIframeDoc = previewIframe.contentDocument;
+		const resultScript = previewIframeDoc.createElement('script');
+		switch(stepNumber.innerHTML) {
+  			case '1':
+				stepNumber.innerHTML = 2;
+				help.title = window.initialCode.stepHelp2;
+				stepTitle.innerHTML = window.initialCode.stepTitle2;
+				drawPreviewIframe(previewIframe, previewIframeDoc, resultScript, window.initialCode.resultJS2);
+				break;
+			case '2':
+				stepNumber.innerHTML = 3;
+				help.title = window.initialCode.stepHelp3;
+				stepTitle.innerHTML = window.initialCode.stepTitle3;
+				drawPreviewIframe(previewIframe, previewIframeDoc, resultScript, window.initialCode.resultJS3);
+				break;
+  			case '3':
+				stepNumber.innerHTML = 4;
+				help.title = window.initialCode.stepHelp4;
+				stepTitle.innerHTML = window.initialCode.stepTitle4;
+				drawPreviewIframe(previewIframe, previewIframeDoc, resultScript, window.initialCode.resultJS4);
+				userCodeStr = jsEditor.getValue();
+      				jsEditor.setValue(userCodeStr + window.initialCode.initialJS2, 1);
+				break;
+  			case '4':
+				alert("Поздравляю! Вы успешно прошли испытание!");
+				break;
+  			default:
+				alert("Произошла ошибка");
+				break;
+		}
+        };
+      </script>	
+  </body>
+</html>
